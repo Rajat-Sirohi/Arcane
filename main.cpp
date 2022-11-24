@@ -1,6 +1,5 @@
-// TODO: Add cool visual effects to bolt and fire using custom shaders
-// TODO: Add score counter + more interesting targets / challenges
 // TODO: Add sound effects
+// TODO: Add score counter + more interesting targets / challenges
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -33,7 +32,7 @@ std::vector<Fire*> fires;
 object active_object;
 
 std::unordered_map<object, glm::vec3> colors;
-bool toggle_spawn_targets = true;
+bool toggle_spawn_targets = false;
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
@@ -190,7 +189,7 @@ void update(float dt) {
             it_t = targets.begin();
             while (it_t != targets.end()) {
                 if (check_collision_rect_rect((*it_f)->pos, (*it_f)->size, (*it_t)->pos, (*it_t)->size)) {
-                    embers.push_back(new Fire((*it_t)->pos, (*it_t)->vel, (*it_t)->size / 4));
+                    embers.push_back(new Fire((*it_t)->pos, (*it_t)->vel, (*it_t)->size / 3));
                     targets.erase(it_t);
                 } else {
                     it_t++;
@@ -205,19 +204,24 @@ void update(float dt) {
 void render() {
     glClear(GL_COLOR_BUFFER_BIT);
     passthroughShader.use();
+    passthroughShader.setFloat("time", glfwGetTime());
 
+    passthroughShader.setBool("glow", false);
     passthroughShader.setVec3("color", colors[active_object]);
     glBindVertexArray(centerVAO);
     glDrawArrays(GL_POINTS, 0, 1);
 
+    passthroughShader.setBool("glow", false);
     passthroughShader.setVec3("color", colors[O_TARGET]);
     for (Target *target : targets)
         target->draw();
 
+    passthroughShader.setBool("glow", true);
     passthroughShader.setVec3("color", colors[O_BOLT]);
     for (Bolt *bolt : bolts)
         bolt->draw();
 
+    passthroughShader.setBool("glow", true);
     passthroughShader.setVec3("color", colors[O_FIRE]);
     for (Fire *fire : fires)
         fire->draw();
