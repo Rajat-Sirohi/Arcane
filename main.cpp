@@ -1,6 +1,3 @@
-// TODO: Add sound effects
-// TODO: Add score counter + more interesting targets / challenges
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/constants.hpp>
@@ -16,6 +13,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <thread>
+#include <FreeImage.h>
 
 #define SCR_WIDTH  800
 #define SCR_HEIGHT 800
@@ -33,6 +31,25 @@ object active_object;
 
 std::unordered_map<object, glm::vec3> colors;
 bool toggle_spawn_targets = false;
+
+void saveImage(int frameCount, bool saveAnimation) {
+    int img_width = SCR_WIDTH;
+    int img_height = SCR_HEIGHT;
+    BYTE* pixels = new BYTE[3 * img_width * img_height];
+    glReadPixels(0, 0, img_width, img_height, GL_BGR, GL_UNSIGNED_BYTE, pixels);
+    FIBITMAP* image = FreeImage_ConvertFromRawBits(pixels, img_width, img_height, 3 * img_width, 24, 0xFF0000, 0x00FF00, 0x0000FF, false);
+
+    char filename[13];
+    sprintf(filename, "img/%05d.bmp", frameCount);
+    FreeImage_Save(FIF_BMP, image, filename, 0);
+    FreeImage_Unload(image);
+    delete [] pixels;
+
+    if (saveAnimation) {
+        glfwSetWindowShouldClose(window, true);
+        std::system("ffmpeg -y -f image2 -i 'img/%05d.bmp' animation.gif");
+    }
+}
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
@@ -247,7 +264,7 @@ void spawn_targets() {
 }
 
 void run() {
-    unsigned int frames = 0;
+    unsigned int frameCount = 0;
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     float dt = 0, prevTime = 0;
     while (!glfwWindowShouldClose(window)) {
@@ -265,8 +282,10 @@ void run() {
         glfwSwapBuffers(window);
         glfwPollEvents();
 
+        frameCount++;
+        saveImage(frameCount, false);
         //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        //std::cout << "FPS: " << (double)(frames++) / (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()) * 1000000 << std::endl;
+        //std::cout << "FPS: " << (double)frameCount / (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()) * 1000000 << std::endl;
     }
 }
 

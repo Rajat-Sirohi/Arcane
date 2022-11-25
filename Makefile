@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -g -Wall -ldl -lGL -lOpenGL -lGLU -lglfw
+CFLAGS = -g -Wall -ldl -lGL -lOpenGL -lGLU -lglfw -lfreeimage
 OBJ = glad.c main.o shader.o target.o bolt.o fire.o
 
 arcane: $(OBJ)
