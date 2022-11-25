@@ -283,7 +283,7 @@ void run() {
         glfwPollEvents();
 
         frameCount++;
-        saveImage(frameCount, false);
+        //saveImage(frameCount, false);
         //std::this_thread::sleep_for(std::chrono::milliseconds(10));
         //std::cout << "FPS: " << (double)frameCount / (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - begin).count()) * 1000000 << std::endl;
     }
