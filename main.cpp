@@ -3,6 +3,7 @@
 #include <glm/gtc/constants.hpp>
 
 #include "shader.h"
+#include "sound_manager.h"
 #include "collision.h"
 #include "target.h"
 #include "bolt.h"
@@ -17,10 +18,12 @@
 
 #define SCR_WIDTH  800
 #define SCR_HEIGHT 800
+#define N_VO 2
 
 GLFWwindow* window;
+SoundManager *SoundMan;
 glm::vec2 mouse_pos(0.0f);
-GLuint centerVAO, centerVBO;
+GLuint VAO[N_VO], VBO[N_VO];
 Shader passthroughShader = Shader();
 
 enum object { O_TARGET, O_BOLT, O_FIRE };
@@ -83,6 +86,8 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
                 active_object = O_FIRE;
             } else if (key == GLFW_KEY_TAB) {
                 toggle_spawn_targets = !toggle_spawn_targets;
+            } else if (key == GLFW_KEY_M) {
+                SoundMan->toggleMute();
             }
         }
     }
@@ -122,6 +127,10 @@ void init() {
         return;
 	}
 
+    // Setup sound manager
+    SoundMan = new SoundManager();
+    SoundMan->loadSound("explosion");
+
     // Setup colors
     active_object = O_BOLT;
     colors[O_TARGET] = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -131,22 +140,34 @@ void init() {
     // Setup shader programs
     passthroughShader = Shader("shaders/passthrough.vs", "shaders/passthrough.fs");
 
-    // Setup centerVAO, centerVBO
+    // Setup VAOs, VBOs
     glPointSize(10);
-    float vertices[] = { 0.0f, 0.0f };
+    float centerVertices[] = { 0.0f, 0.0f };
+    float mutedVertices[] = {
+        -1.0f, 0.9f,
+        -0.9f, 1.0f,
+        -1.0f, 1.0f,
+        -0.9f, 0.9f,
+    };
 
-    glGenVertexArrays(1, &centerVAO);
-    glGenBuffers(1, &centerVBO);
-    glBindVertexArray(centerVAO);
+    glGenVertexArrays(N_VO, VAO);
+    glGenBuffers(N_VO, VBO);
 
-    glBindBuffer(GL_ARRAY_BUFFER, centerVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBindVertexArray(VAO[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(centerVertices), centerVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
+    glBindVertexArray(VAO[1]);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(mutedVertices), mutedVertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 }
 
 std::vector<Bolt*> explode(Target *target) {
+    SoundMan->playSound("explosion", false);
     std::vector<Bolt*> shrapnel;
     for (int i = 0; i < 2; i++) {
         float angle = RAND_F * 2*glm::pi<float>();
@@ -223,21 +244,33 @@ void render() {
     passthroughShader.use();
     passthroughShader.setFloat("time", glfwGetTime());
 
+    // Center block
     passthroughShader.setBool("glow", false);
     passthroughShader.setVec3("color", colors[active_object]);
-    glBindVertexArray(centerVAO);
+    glBindVertexArray(VAO[0]);
     glDrawArrays(GL_POINTS, 0, 1);
 
+    // Muted cross
+    if (SoundMan->muteOn) {
+        passthroughShader.setBool("glow", false);
+        passthroughShader.setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f));
+        glBindVertexArray(VAO[1]);
+        glDrawArrays(GL_LINE_STRIP, 0, 4);
+    }
+
+    // Targets
     passthroughShader.setBool("glow", false);
     passthroughShader.setVec3("color", colors[O_TARGET]);
     for (Target *target : targets)
         target->draw();
 
+    // Bolts
     passthroughShader.setBool("glow", true);
     passthroughShader.setVec3("color", colors[O_BOLT]);
     for (Bolt *bolt : bolts)
         bolt->draw();
 
+    // Fires
     passthroughShader.setBool("glow", true);
     passthroughShader.setVec3("color", colors[O_FIRE]);
     for (Fire *fire : fires)
@@ -245,7 +278,7 @@ void render() {
 }
 
 void spawn_targets() {
-    if (RAND_F < 0.02) {
+    if (RAND_F < 0.001) {
         int border = std::rand() % 4;
         float offset = 2 * RAND_F - 1;
 
@@ -293,8 +326,8 @@ int main() {
     init();
     run();
 
-    glDeleteVertexArrays(1, &centerVAO);
-    glDeleteBuffers(1, &centerVBO);
+    glDeleteVertexArrays(N_VO, VAO);
+    glDeleteBuffers(N_VO, VBO);
 
     glfwTerminate();
     return 0;
